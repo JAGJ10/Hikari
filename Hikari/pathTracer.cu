@@ -25,7 +25,7 @@ __constant__ Sphere spheres[] = {
 	{ 400.0f, { 0.0f, 465.0f, 0.f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, DIFF }  // Light
 };
 
-__device__ bool intersect(const Ray& r, float& hitdist, int& triId, int& geomtype, float3& pointHitInWorldSpace) {
+__device__ bool intersect(const Ray& r, float& hitdist, int& triId, int& geomtype, float3& pointHitInWorldSpace, bool& isLight) {
 	int stack[64];
 	int topIndex = 0;
 	stack[topIndex++] = 0;
@@ -40,6 +40,7 @@ __device__ bool intersect(const Ray& r, float& hitdist, int& triId, int& geomtyp
 					Triangle tri = triangles[index + i];
 					float t = tri.intersect(r, make_float3(tri.v0), make_float3(tri.v1 - tri.v0), make_float3(tri.v2 - tri.v0));
 					if (t < hitdist && t > 0.001f) {
+						isLight = tri.isLight;
 						hitdist = t;
 						triId = index + i;
 						geomtype = 2;
@@ -80,7 +81,8 @@ __device__ float3 radiance(Ray& r, curandState* randState, const int numTriangle
 		float3 dw; // ray dir of next path segment
 		Refl_t refltype = REFR;
 
-		intersect(r, scene_t, triangle_id, geomtype, pointHitInWorldSpace);
+		bool isLight = false;
+		intersect(r, scene_t, triangle_id, geomtype, pointHitInWorldSpace, isLight);
 
 		// SPHERES
 		// intersect all spheres in the scene
@@ -186,6 +188,120 @@ __global__ void pathTrace(Camera* cam, cudaSurfaceObject_t surface, float4* buff
 	surf2Dwrite(tempcol, surface, x * sizeof(float4), (height - y - 1));
 }
 
+__device__ bool shadowRay(float3 pointHitInWorldSpace, float3 lightPos) {
+	float3 rayDir = normalize(lightPos - pointHitInWorldSpace);
+	Ray shadowRay(pointHitInWorldSpace + 0.01f * rayDir, rayDir);
+	int geomtype = -1;
+	int triangle_id = -1;
+	float scene_t = 1e20;
+	float3 point;
+	bool isLight;
+	if (!intersect(shadowRay, scene_t, triangle_id, geomtype, point, isLight)) {
+		return false;
+	} else if (isLight) {
+		return true;
+	}
+	
+	return false;
+}
+
+__global__ void primaryRays(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, unsigned int frameNumber, unsigned int hashed) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * cam->res.x);
+	if (index >= (cam->res.x * cam->res.y)) return;
+
+	curandState randState;
+	curand_init(hashed + index, 0, 0, &randState);
+
+	float r1 = curand_uniform(&randState);
+	float r2 = curand_uniform(&randState);
+	Ray r = cam->getRay(x, y, true, r1, r2, frameNumber);
+
+	//Intersect primary ray with scene and then do light sampling
+	float d = 1e20;
+	float scene_t = 1e20;
+	float3 pointHitInWorldSpace;
+
+	// reset scene intersection function parameters
+	int sphere_id = -1;
+	int triangle_id = -1;
+	int geomtype = -1;
+	float3 f = make_float3(0);  // primitive colour
+	float3 emit = make_float3(0); // primitive emission colour
+	float3 x1; // intersection point
+	float3 n; // normal
+	float3 nl; // oriented normal
+	float3 dw; // ray dir of next path segment
+	Refl_t refltype = REFR;
+	// colour mask
+	float3 mask = make_float3(1.0f, 1.0f, 1.0f);
+	// accumulated colour
+	float3 accucolor = make_float3(0.0f, 0.0f, 0.0f);
+	bool isLight;
+	intersect(r, scene_t, triangle_id, geomtype, pointHitInWorldSpace, isLight);
+
+	// SPHERES
+	// intersect all spheres in the scene
+	float numspheres = sizeof(spheres) / sizeof(Sphere);
+	for (int i = int(numspheres); i--;)  // for all spheres in scene
+		// keep track of distance from origin to closest intersection point
+		if ((d = spheres[i].intersect(r)) && d < scene_t) { scene_t = d; sphere_id = i; geomtype = 1; }
+
+	if (geomtype == 1) {
+		Sphere &sphere = spheres[sphere_id]; // hit object with closest intersection
+		x1 = r.origin + r.dir*scene_t;  // intersection point on object
+		n = normalize(x - sphere.position);		// normal
+		//nl = dot(n, r.dir) < 0 ? n : n * -1; // correctly oriented normal
+		f = sphere.color;   // object colour
+		refltype = sphere.refl;
+		emit = sphere.emission;  // object emission
+		//accucolor += (mask * emit);
+	} else if (geomtype == 2) { // if Triangle:
+		x1 = pointHitInWorldSpace;  // intersection point
+		n = triangles[triangle_id].normal;  // normal 
+		//nl = dot(n, r.dir) < 0 ? n : n * -1;  // correctly oriented normal
+
+		// colour, refltype and emit value are hardcoded and apply to all triangles
+		// no per Triangle material support yet
+		f = make_float3(1.0f);  // Triangle colour
+		refltype = DIFF;
+		if (isLight) emit = make_float3(1.0f);
+		else emit = make_float3(0.0f);
+		//accucolor += (mask * emit);
+	}
+
+	//we hit something
+	if (geomtype == 2) {
+		if (isLight) {
+			buffer[index] += make_float4(1.0f);
+		} else {
+			//generate random point on light surface
+			float lightArea = 1000;
+			float lightWidth = 100;
+			float3 lightPos = make_float3(0, 50, 50) + make_float3(lightWidth * (r1 * 2 - 1), 0, lightWidth * (r2 * 2 - 1));
+			float3 lightNormal = make_float3(0, -1, 0);
+			float3 lightColor = make_float3(10.0f);
+			//check if we can see the light
+			if (shadowRay(pointHitInWorldSpace, lightPos)) {
+				float3 distance = lightPos - pointHitInWorldSpace;
+				float3 l = normalize(distance);
+				float cosineTerm = clamp(dot(n, -l), 0.0f, 1.0f);
+				float projectedLightArea = clamp(dot(lightNormal, -l), 0.0f, 1.0f) * lightArea;
+				float3 lightContribution = lightColor * f * cosineTerm * projectedLightArea / pow(length(distance), 2.0f) / M_PI;
+				buffer[index] += make_float4(lightContribution, 1.0f);
+			}
+		}
+	}
+
+	// write rgb value of pixel to image buffer on the GPU, clamp value to [0.0f, 1.0f] range
+//	buffer[index] += make_float4(r, 1.0f);
+	float4 tempcol = buffer[index] / frameNumber;
+	//tempcol = make_float4(clamp(tempcol.x, 0.0f, 1.0f), clamp(tempcol.y, 0.0f, 1.0f), clamp(tempcol.z, 0.0f, 1.0f), 1.0f);
+	//tempcol /= 2.2f;
+	surf2Dwrite(tempcol, surface, x * sizeof(float4), (height - y - 1));
+}
+
 // this hash function calculates a new random number generator seed for each frame, based on framenumber  
 unsigned int WangHash(unsigned int a) {
 	a = (a ^ 61) ^ (a >> 16);
@@ -204,8 +320,9 @@ void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* 
 	dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
 	
 	//should do cudaCheck
-	cudaMemcpyToSymbol(triangles, &dTriangles, sizeof(float4*));
-	cudaMemcpyToSymbol(nodes, &dNodes, sizeof(LBVHNode*));
+	cudaCheck(cudaMemcpyToSymbol(triangles, &dTriangles, sizeof(float4*)));
+	cudaCheck(cudaMemcpyToSymbol(nodes, &dNodes, sizeof(LBVHNode*)));
 
-	pathTrace<<<grid, block>>>(cam, surface, buffer, numTriangles, frameNumber, hashed);
+	//pathTrace<<<grid, block>>>(cam, surface, buffer, numTriangles, frameNumber, hashed);
+	primaryRays<<<grid, block>>>(cam, surface, buffer, frameNumber, hashed);
 }

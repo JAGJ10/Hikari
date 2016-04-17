@@ -13,8 +13,6 @@
 #include "Shader.h"
 #include "Mesh.h"
 
-
-
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
 
@@ -92,9 +90,17 @@ int main() {
 	cudaCheck(cudaMalloc((void**)&buffer, width * height * sizeof(float4)));
 	cudaCheck(cudaMemset(buffer, 0, width * height * sizeof(float4)));
 
-	//Mesh	
-	Mesh cBox("objs/Avent");
+	//Mesh
+	float3 offset = make_float3(0, -2, 50);
+	float3 scale = make_float3(-20, 20, 20);
+	Mesh cBox("objs/Avent", false, 0, scale, offset);
+	offset = make_float3(0, 50, 50);
+	scale = make_float3(100);
+	Mesh light("objs/plane", true, cBox.triangles.size(), scale, offset);
+	cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
+	cBox.aabbs.insert(cBox.aabbs.end(), light.aabbs.begin(), light.aabbs.end());
 	std::cout << "Num triangles: " << cBox.triangles.size() << std::endl;
+	cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
 	BVH bvh(cBox.aabbs, cBox.triangles, cBox.root);
 
 	//std::ofstream myfile;
