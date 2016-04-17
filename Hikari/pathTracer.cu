@@ -252,7 +252,7 @@ __global__ void primaryRays(Camera* cam, cudaSurfaceObject_t surface, float4* bu
 		Sphere &sphere = spheres[sphere_id]; // hit object with closest intersection
 		x1 = r.origin + r.dir*scene_t;  // intersection point on object
 		n = normalize(x - sphere.position);		// normal
-		//nl = dot(n, r.dir) < 0 ? n : n * -1; // correctly oriented normal
+		nl = dot(n, r.dir) < 0 ? n : n * -1; // correctly oriented normal
 		f = sphere.color;   // object colour
 		refltype = sphere.refl;
 		emit = sphere.emission;  // object emission
@@ -260,7 +260,7 @@ __global__ void primaryRays(Camera* cam, cudaSurfaceObject_t surface, float4* bu
 	} else if (geomtype == 2) { // if Triangle:
 		x1 = pointHitInWorldSpace;  // intersection point
 		n = triangles[triangle_id].normal;  // normal 
-		//nl = dot(n, r.dir) < 0 ? n : n * -1;  // correctly oriented normal
+		nl = dot(n, r.dir) < 0 ? n : n * -1;  // correctly oriented normal
 
 		// colour, refltype and emit value are hardcoded and apply to all triangles
 		// no per Triangle material support yet
@@ -286,7 +286,7 @@ __global__ void primaryRays(Camera* cam, cudaSurfaceObject_t surface, float4* bu
 			if (shadowRay(pointHitInWorldSpace, lightPos)) {
 				float3 distance = lightPos - pointHitInWorldSpace;
 				float3 l = normalize(distance);
-				float cosineTerm = clamp(dot(n, -l), 0.0f, 1.0f);
+				float cosineTerm = clamp(dot(nl, l), 0.0f, 1.0f);
 				float projectedLightArea = clamp(dot(lightNormal, -l), 0.0f, 1.0f) * lightArea;
 				float3 lightContribution = lightColor * f * cosineTerm * projectedLightArea / pow(length(distance), 2.0f) / M_PI;
 				buffer[index] += make_float4(lightContribution, 1.0f);
