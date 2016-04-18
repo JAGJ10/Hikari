@@ -8,9 +8,10 @@ struct Ray {
 	float3 origin;
 	float3 dir;
 	float3 invDir;
+	bool active;
 
-	__host__ __device__ Ray() {}
-	__host__ __device__ Ray(float3 o, float3 d) : origin(o), dir(d), invDir(1.0f / d) {}
+	__host__ __device__ Ray() : active(true) {}
+	__host__ __device__ Ray(float3 o, float3 d) : origin(o), dir(d), invDir(1.0f / d), active(true) {}
 };
 
 #endif

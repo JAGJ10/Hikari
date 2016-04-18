@@ -90,7 +90,7 @@ public:
 		front = normalize(front);
 	}
 
-	__host__ __device__ Ray getRay(int x, int y, bool jitter, float r1, float r2, unsigned int frameNumber) {
+	__host__ __device__ Ray getRay(int x, int y, bool jitter, float r1, float r2) {
 		//if (jitter) {
 			float sx = (r1 - 0.5f + x) / (res.x - 1);
 			float sy = (r2 - 0.5f + y) / (res.y - 1);

@@ -17,7 +17,7 @@
 #include <crtdbg.h>
 
 void handleInput(GLFWwindow* window, Camera &cam);
-void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, const int numTriangles, unsigned int frameNumber);
+void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, unsigned int frameNumber);
 
 static const int width = 1280;
 static const int height = 720;
@@ -146,7 +146,7 @@ int main() {
 				
 		if (frameNumber < 2000) {
 			cudaCheck(cudaGraphicsMapResources(1, &resource, 0));
-			render(dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, (int)bvh.orderedTris.size(), frameNumber);
+			render(dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, frameNumber);
 			cudaCheck(cudaGraphicsUnmapResources(1, &resource, 0));
 		}
 

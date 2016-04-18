@@ -25,7 +25,7 @@ __constant__ Sphere spheres[] = {
 	{ 400.0f, { 0.0f, 465.0f, 0.f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, DIFF }  // Light
 };
 
-__device__ bool intersect(const Ray& r, int& triId, float& hitDist, int& geomtype, float3& hitPoint) {
+__device__ bool intersect(const Ray& r, int& triId, float& hitDist, float3& hitPoint) {
 	int stack[64];
 	int topIndex = 0;
 	stack[topIndex++] = 0;
@@ -42,7 +42,6 @@ __device__ bool intersect(const Ray& r, int& triId, float& hitDist, int& geomtyp
 					if (t < hitDist && t > 0.001f) {
 						hitDist = t;
 						triId = index + i;
-						geomtype = 2;
 						hitPoint = r.origin + r.dir * t;
 						intersected = true;
 					}
@@ -80,7 +79,7 @@ __device__ float3 radiance(Ray& r, curandState* randState) {
 		float3 dw; // ray dir of next path segment
 		Refl_t refltype = REFR;
 
-		intersect(r, tri, hitDist, geomtype, hitPoint);
+		intersect(r, tri, hitDist, hitPoint);
 
 		// SPHERES
 		// intersect all spheres in the scene
@@ -175,7 +174,7 @@ __global__ void pathTrace(Camera* cam, cudaSurfaceObject_t surface, float4* buff
 
 	float r1 = curand_uniform(&randState);
 	float r2 = curand_uniform(&randState);
-	Ray ray = cam->getRay(x, y, true, r1, r2, frameNumber);
+	Ray ray = cam->getRay(x, y, true, r1, r2);
 	float3 r = radiance(ray, &randState);
 
 	// write rgb value of pixel to image buffer on the GPU, clamp value to [0.0f, 1.0f] range
@@ -188,17 +187,62 @@ __global__ void pathTrace(Camera* cam, cudaSurfaceObject_t surface, float4* buff
 
 __device__ bool shadowRay(float3 hitPoint, float3 lightPos, float3 rayDir) {
 	Ray shadowRay(hitPoint + 0.01f * rayDir, rayDir);
-	int geomtype = -1;
 	int tri = -1;
 	float hitDist = 1e20;
 	float3 point;
-	if (!intersect(shadowRay, tri, hitDist, geomtype, point)) {
+	if (!intersect(shadowRay, tri, hitDist, point)) {
 		return false;
 	} else if (triangles[tri].emit.x > 0.0f || triangles[tri].emit.y > 0.0f || triangles[tri].emit.z > 0.0f) {
 		return true;
 	}
 	
 	return false;
+}
+
+__global__ void secondaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface, float4* buffer, unsigned int frameNumber, unsigned int hashed) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * cam->res.x);
+	if (index >= (cam->res.x * cam->res.y) || !rays[index].active) return;
+
+	curandState randState;
+	curand_init(hashed + index, 0, 0, &randState);
+	float3 mask = make_float3(1.0f);
+	float3 accucolor = make_float3(0.0f);
+
+	for (int i = 0; i < 5; i++) {
+		float hitDist = 1e20;
+		int tri = -1;
+		float3 hitPoint, c, emit, n;
+
+		if (intersect(rays[index], tri, hitDist, hitPoint)) {
+			//Make sure normal is oriented
+			n = dot(triangles[tri].normal, rays[index].dir) < 0 ? triangles[tri].normal : triangles[tri].normal * -1;
+			c = triangles[tri].diffuse;
+			emit = triangles[tri].emit;
+			accucolor += mask * emit;
+			mask *= c;
+
+			//ideal diffuse reflection
+			float r1 = 2 * M_PI * curand_uniform(&randState);
+			float r2 = curand_uniform(&randState);
+			float r2s = sqrtf(r2);
+
+			//compute orthonormal coordinate frame uvw with hitpoint as origin 
+			float3 u = normalize(cross((fabs(n.x) > .1f ? make_float3(0, 1, 0) : make_float3(1, 0, 0)), n));
+			float3 v = cross(n, u);
+
+			//compute cosine weighted random ray dir on hemisphere 
+			rays[index].dir = normalize(u*cosf(r1)*r2s + v*sinf(r1)*r2s + n*sqrtf(1 - r2));
+			rays[index].invDir = 1.0f / rays[index].dir;
+			//offset origin next path segment to prevent self intersection
+			rays[index].origin = hitPoint + n * 0.01f;
+		} else {
+			return;
+		}
+	}
+
+	buffer[index] += make_float4(accucolor, 1.0f);
 }
 
 __global__ void primaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface, float4* buffer, unsigned int frameNumber, unsigned int hashed) {
@@ -212,27 +256,22 @@ __global__ void primaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface,
 
 	float r1 = curand_uniform(&randState);
 	float r2 = curand_uniform(&randState);
-	rays[index] = cam->getRay(x, y, true, r1, r2, frameNumber);
-	Ray r = rays[index];
+	rays[index] = cam->getRay(x, y, true, r1, r2);
 
 	//Intersect primary ray with scene and then do light sampling
 	float hitDist = 1e20;
 	int tri = -1;
-	int geomtype = -1;
 	float3 hitPoint, c, emit, n;
 
-	intersect(r, tri, hitDist, geomtype, hitPoint);
-
-	//we hit something
-	if (geomtype == 2) {
+	if (intersect(rays[index], tri, hitDist, hitPoint)) {
 		//Make sure normal is oriented
-		n = dot(triangles[tri].normal, r.dir) < 0 ? triangles[tri].normal : triangles[tri].normal * -1;
-
+		n = dot(triangles[tri].normal, rays[index].dir) < 0 ? triangles[tri].normal : triangles[tri].normal * -1;
 		c = triangles[tri].diffuse;
 		emit = triangles[tri].emit;
 
 		if (emit.x > 0.0f || emit.y > 0.0f || emit.z > 0.0f) {
 			buffer[index] += make_float4(c, 1.0f);
+			rays[index].active = false;
 		} else {
 			//generate random point on light surface
 			float lightArea = 34.125f;
@@ -249,9 +288,34 @@ __global__ void primaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface,
 				float projectedLightArea = clamp(dot(lightNormal, -l), 0.0f, 1.0f) * lightArea;
 				float3 lightContribution = lightColor * c * cosineTerm * projectedLightArea / pow(length(distance), 2.0f) / M_PI;
 				buffer[index] += make_float4(lightContribution, 1.0f);
+			} else {
+				rays[index].active = false;
 			}
+
+			//ideal diffuse reflection
+			float r2s = sqrtf(r2);
+
+			//compute orthonormal coordinate frame uvw with hitpoint as origin 
+			float3 u = normalize(cross((fabs(n.x) > .1f ? make_float3(0, 1, 0) : make_float3(1, 0, 0)), n));
+			float3 v = cross(n, u);
+
+			//compute cosine weighted random ray dir on hemisphere 
+			rays[index].dir = normalize(u*cosf(r1)*r2s + v*sinf(r1)*r2s + n*sqrtf(1 - r2));
+			rays[index].invDir = 1.0f / rays[index].dir;
+			//offset origin next path segment to prevent self intersection
+			rays[index].origin = hitPoint + n * 0.01f;
 		}
 	}
+
+	//float4 tempcol = buffer[index] / frameNumber;
+	//surf2Dwrite(tempcol, surface, x * sizeof(float4), (height - y - 1));
+}
+
+__global__ void writePixels(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, unsigned int frameNumber) {
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * cam->res.x);
+	if (index >= (cam->res.x * cam->res.y)) return;
 
 	float4 tempcol = buffer[index] / frameNumber;
 	surf2Dwrite(tempcol, surface, x * sizeof(float4), (height - y - 1));
@@ -267,13 +331,13 @@ unsigned int WangHash(unsigned int a) {
 	return a;
 }
 
-void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, const int numTriangles, unsigned int frameNumber) {
-	unsigned int hashed = WangHash(frameNumber);
-
+void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, unsigned int frameNumber) {
 	dim3 block(32, 16);
 	//dim3 grid(width / block.x, height / block.y, 1);
 	dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
 	
+	unsigned int hashed = WangHash(frameNumber);
+
 	//should do cudaCheck
 	cudaCheck(cudaMemcpyToSymbol(triangles, &dTriangles, sizeof(float4*)));
 	cudaCheck(cudaMemcpyToSymbol(nodes, &dNodes, sizeof(LBVHNode*)));
@@ -283,5 +347,7 @@ void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* 
 	Ray* rays;
 	cudaCheck(cudaMalloc((void**)&rays, sizeof(Ray) * width * height));
 	primaryRays<<<grid, block>>>(rays, cam, surface, buffer, frameNumber, hashed);
+	secondaryRays<<<grid, block>>>(rays, cam, surface, buffer, frameNumber, hashed);
+	writePixels<<<grid, block>>>(cam, surface, buffer, frameNumber);
 	cudaCheck(cudaFree(rays));
 }
