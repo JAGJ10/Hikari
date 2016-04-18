@@ -11,7 +11,7 @@ public:
 	std::vector<triBox> aabbs;
 	AABB root;
 
-	Mesh(std::string filePath, bool isLight, int start, float3 scale, float3 offset);
+	Mesh(std::string filePath, int start, float3 scale, float3 offset);
 	~Mesh();
 
 private:

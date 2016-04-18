@@ -16,9 +16,10 @@ class Triangle {
 public:
 	float4 v0, v1, v2;
 	float3 normal;
-	bool isLight;
+	float3 diffuse, emit;
 
-	Triangle(float4 v0, float4 v1, float4 v2, float3 normal, bool isLight) : v0(v0), v1(v1), v2(v2), normal(normal), isLight(isLight) {}
+	Triangle(float4 v0, float4 v1, float4 v2, float3 normal, float3 diffuse, float3 emit) : 
+		v0(v0), v1(v1), v2(v2), normal(normal), diffuse(diffuse), emit(emit) {}
 
 	__device__ float intersect(const Ray& r, const float3& v0, const float3& edge1, const float3& edge2) {
 		float3 tvec = r.origin - v0;

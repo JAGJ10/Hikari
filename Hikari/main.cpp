@@ -91,16 +91,16 @@ int main() {
 	cudaCheck(cudaMemset(buffer, 0, width * height * sizeof(float4)));
 
 	//Mesh
-	float3 offset = make_float3(0, -2, 50);
-	float3 scale = make_float3(-20, 20, 20);
-	Mesh cBox("objs/Avent", false, 0, scale, offset);
-	offset = make_float3(0, 50, 50);
+	float3 offset = make_float3(0);
+	float3 scale = make_float3(0.05f, 0.05f, -0.05f);
+	Mesh cBox("objs/cornell_box_multimaterial", 0, scale, offset);
+	offset = make_float3(0, 25, 0);
 	scale = make_float3(100);
-	Mesh light("objs/plane", true, cBox.triangles.size(), scale, offset);
-	cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
-	cBox.aabbs.insert(cBox.aabbs.end(), light.aabbs.begin(), light.aabbs.end());
-	std::cout << "Num triangles: " << cBox.triangles.size() << std::endl;
-	cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
+	//Mesh light("objs/plane", true, cBox.triangles.size(), scale, offset);
+	//cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
+	//cBox.aabbs.insert(cBox.aabbs.end(), light.aabbs.begin(), light.aabbs.end());
+	//std::cout << "Num triangles: " << cBox.triangles.size() << std::endl;
+	//cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
 	BVH bvh(cBox.aabbs, cBox.triangles, cBox.root);
 
 	//std::ofstream myfile;
@@ -108,7 +108,7 @@ int main() {
 	//createFile(root, myfile);
 	//myfile.close();
 
-	Camera cam(make_float3(0, 20, 180), make_int2(width, height), make_float2(45.0f, 25.3125f), 0.04f, 100.0f);
+	Camera cam(make_float3(14, 15, 80), make_int2(width, height), make_float2(45.0f, 25.3125f), 0.04f, 100.0f);
 	Camera* dCam;
 
 	cudaCheck(cudaMalloc((void**)&dCam, sizeof(Camera)));
@@ -144,7 +144,7 @@ int main() {
 		frameNumber++;
 		std::cout << "Frame: " << frameNumber << std::endl;
 				
-		if (frameNumber < 256) {
+		if (frameNumber < 2000) {
 			cudaCheck(cudaGraphicsMapResources(1, &resource, 0));
 			render(dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, (int)bvh.orderedTris.size(), frameNumber);
 			cudaCheck(cudaGraphicsUnmapResources(1, &resource, 0));
