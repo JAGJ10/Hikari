@@ -159,8 +159,6 @@ __global__ void primaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface,
 				float projectedLightArea = clamp(dot(lightNormal, -l), 0.0f, 1.0f) * lightArea;
 				float3 lightContribution = lightColor * c * cosineTerm * projectedLightArea / pow(length(distance), 2.0f) / M_PI;
 				buffer[index] += make_float4(lightContribution, 1.0f);
-			} else {
-				rays[index].active = false;
 			}
 
 			//ideal diffuse reflection
