@@ -81,7 +81,7 @@ __global__ void secondaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surfac
 	float3 mask = make_float3(1.0f);
 	float3 accucolor = make_float3(0.0f);
 
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < 3; i++) {
 		float hitDist = 1e20;
 		int tri = -1;
 		float3 hitPoint, c, emit, n;
@@ -162,6 +162,8 @@ __global__ void primaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface,
 			}
 
 			//ideal diffuse reflection
+			r1 = 2 * M_PI * curand_uniform(&randState);
+			r2 = curand_uniform(&randState);
 			float r2s = sqrtf(r2);
 
 			//compute orthonormal coordinate frame uvw with hitpoint as origin 
@@ -174,6 +176,8 @@ __global__ void primaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface,
 			//offset origin next path segment to prevent self intersection
 			rays[index].origin = hitPoint + n * 0.01f;
 		}
+	} else {
+		rays[index].active = false;
 	}
 
 	//float4 tempcol = buffer[index] / frameNumber;

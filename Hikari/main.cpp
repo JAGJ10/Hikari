@@ -144,7 +144,7 @@ int main() {
 		frameNumber++;
 		std::cout << "Frame: " << frameNumber << std::endl;
 				
-		if (frameNumber < 2000) {
+		if (frameNumber < 20000) {
 			cudaCheck(cudaGraphicsMapResources(1, &resource, 0));
 			render(dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, frameNumber);
 			cudaCheck(cudaGraphicsUnmapResources(1, &resource, 0));
