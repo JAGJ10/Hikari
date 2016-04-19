@@ -17,7 +17,7 @@
 #include <crtdbg.h>
 
 void handleInput(GLFWwindow* window, Camera &cam);
-void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, unsigned int frameNumber);
+void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, unsigned int frameNumber, bool quickRender);
 
 static const int width = 1280;
 static const int height = 720;
@@ -92,15 +92,15 @@ int main() {
 
 	//Mesh
 	float3 offset = make_float3(0);
-	float3 scale = make_float3(0.05f, 0.05f, -0.05f);
-	Mesh cBox("objs/cornell_box_multimaterial", 0, scale, offset);
-	offset = make_float3(0, 25, 0);
+	float3 scale = make_float3(-15, 15, -15);
+	Mesh cBox("objs/Avent", 0, scale, offset);
+	offset = make_float3(0, 45, 0);
 	scale = make_float3(100);
-	//Mesh light("objs/plane", true, cBox.triangles.size(), scale, offset);
-	//cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
-	//cBox.aabbs.insert(cBox.aabbs.end(), light.aabbs.begin(), light.aabbs.end());
-	//std::cout << "Num triangles: " << cBox.triangles.size() << std::endl;
-	//cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
+	Mesh light("objs/plane", (int)cBox.triangles.size(), scale, offset);
+	cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
+	cBox.aabbs.insert(cBox.aabbs.end(), light.aabbs.begin(), light.aabbs.end());
+	std::cout << "Num triangles: " << cBox.triangles.size() << std::endl;
+	cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
 	BVH bvh(cBox.aabbs, cBox.triangles, cBox.root);
 
 	//std::ofstream myfile;
@@ -108,7 +108,7 @@ int main() {
 	//createFile(root, myfile);
 	//myfile.close();
 
-	Camera cam(make_float3(14, 15, 80), make_int2(width, height), make_float2(45.0f, 25.3125f), 0.04f, 100.0f);
+	Camera cam(make_float3(14, 15, 80), make_int2(width, height), 45.0f, 0.04f, 100.0f);
 	Camera* dCam;
 
 	cudaCheck(cudaMalloc((void**)&dCam, sizeof(Camera)));
@@ -146,9 +146,11 @@ int main() {
 				
 		if (frameNumber < 20000) {
 			cudaCheck(cudaGraphicsMapResources(1, &resource, 0));
-			render(dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, frameNumber);
+			render(dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, frameNumber, cam.moved);
 			cudaCheck(cudaGraphicsUnmapResources(1, &resource, 0));
 		}
+
+		cam.moved = false;
 
 		glUseProgram(final.program);
 		glActiveTexture(GL_TEXTURE0);

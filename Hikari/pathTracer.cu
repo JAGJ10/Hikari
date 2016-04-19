@@ -91,7 +91,7 @@ __global__ void secondaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surfac
 			n = dot(triangles[tri].normal, rays[index].dir) < 0 ? triangles[tri].normal : triangles[tri].normal * -1;
 			c = triangles[tri].diffuse;
 			emit = triangles[tri].emit;
-			accucolor += mask * emit;
+			accucolor += i > 0 ? mask * emit : make_float3(0.0f);
 			mask *= c;
 
 			//ideal diffuse reflection
@@ -145,10 +145,11 @@ __global__ void primaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface,
 			rays[index].active = false;
 		} else {
 			//generate random point on light surface
-			float lightArea = 34.125f;
-			float lightWidth = 6.5f / 2.f;
-			float lightHeight = 5.25f / 2.f;
-			float3 lightPos = make_float3(13.9f, 27.4f, -13.975f) + make_float3(lightWidth * (r1 * 2 - 1), 0, lightHeight * (r2 * 2 - 1));
+			float lightArea = 1000;// 34.125f;
+			float lightWidth = 50;// 6.5f / 2.f;
+			float lightHeight = 50;// 5.25f / 2.f;
+			//float3 lightPos = make_float3(13.9f, 27.4f, -13.975f) + make_float3(lightWidth * (r1 * 2 - 1), 0, lightHeight * (r2 * 2 - 1));
+			float3 lightPos = make_float3(0, 45, 0) + make_float3(lightWidth * (r1 * 2 - 1), 0, lightHeight * (r2 * 2 - 1));
 			float3 lightNormal = make_float3(0, -1, 0);
 			float3 lightColor = make_float3(20.0f);
 			//check if we can see the light
@@ -160,21 +161,6 @@ __global__ void primaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface,
 				float3 lightContribution = lightColor * c * cosineTerm * projectedLightArea / pow(length(distance), 2.0f) / M_PI;
 				buffer[index] += make_float4(lightContribution, 1.0f);
 			}
-
-			//ideal diffuse reflection
-			r1 = 2 * M_PI * curand_uniform(&randState);
-			r2 = curand_uniform(&randState);
-			float r2s = sqrtf(r2);
-
-			//compute orthonormal coordinate frame uvw with hitpoint as origin 
-			float3 u = normalize(cross((fabs(n.x) > .1f ? make_float3(0, 1, 0) : make_float3(1, 0, 0)), n));
-			float3 v = cross(n, u);
-
-			//compute cosine weighted random ray dir on hemisphere 
-			rays[index].dir = normalize(u*cosf(r1)*r2s + v*sinf(r1)*r2s + n*sqrtf(1 - r2));
-			rays[index].invDir = 1.0f / rays[index].dir;
-			//offset origin next path segment to prevent self intersection
-			rays[index].origin = hitPoint + n * 0.01f;
 		}
 	} else {
 		rays[index].active = false;
@@ -204,7 +190,7 @@ unsigned int WangHash(unsigned int a) {
 	return a;
 }
 
-void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, unsigned int frameNumber) {
+void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, unsigned int frameNumber, bool quickRender) {
 	dim3 block(32, 16);
 	//dim3 grid(width / block.x, height / block.y, 1);
 	dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
@@ -218,7 +204,7 @@ void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* 
 	Ray* rays;
 	cudaCheck(cudaMalloc((void**)&rays, sizeof(Ray) * width * height));
 	primaryRays<<<grid, block>>>(rays, cam, surface, buffer, frameNumber, hashed);
-	secondaryRays<<<grid, block>>>(rays, cam, surface, buffer, frameNumber, hashed);
+	if (!quickRender) secondaryRays<<<grid, block>>>(rays, cam, surface, buffer, frameNumber, hashed);
 	writePixels<<<grid, block>>>(cam, surface, buffer, frameNumber);
 	cudaCheck(cudaFree(rays));
 }

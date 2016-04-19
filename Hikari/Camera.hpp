@@ -28,8 +28,8 @@ public:
 	float speed, mouseSens;
 	bool moved;
 
-	Camera(float3 position, int2 resolution, float2 fieldOfView, float apertureRadius, float focal) :
-		   eye(position), res(resolution), fov(fieldOfView), front(make_float3(0, 0, -1)), up(make_float3(0, 1, 0)), aperture(apertureRadius), focalDistance(focal) {
+	Camera(float3 position, int2 resolution, float fieldOfView, float apertureRadius, float focal) :
+		   eye(position), res(resolution), front(make_float3(0, 0, -1)), up(make_float3(0, 1, 0)), aperture(apertureRadius), focalDistance(focal) {
 		moved = false;
 		yaw = -90.0f;
 		pitch = 0.0f;
@@ -37,13 +37,16 @@ public:
 		mouseSens = 2.0f;
 		u = normalize(cross(front, up));
 		v = normalize(cross(u, front));
+
+		fov.x = fieldOfView;
+		fov.y = (180 / M_PI) * (atanf(tanf(fieldOfView * 0.5f * (M_PI / 180) * ((float)resolution.y / (float)resolution.x)) * 2.0f));
+		std::cout << fov.y << std::endl;
 		
-		hAxis = u * tanf(fieldOfView.x * 0.5f * (M_PI / 180));
-		vAxis = v * tanf(-fieldOfView.y * 0.5f * (M_PI / 180));
+		hAxis = u * tanf(fov.x * 0.5f * (M_PI / 180));
+		vAxis = v * tanf(-fov.y * 0.5f * (M_PI / 180));
 	}
 
 	void rebuildCamera() {
-		moved = false;
 		u = normalize(cross(front, up));
 		v = normalize(cross(u, front));
 
@@ -79,7 +82,7 @@ public:
 	void mouseMovement(float xoffset, float yoffset, float deltaTime) {
 		moved = true;
 		yaw += (GLfloat)(mouseSens * deltaTime * xoffset);
-		pitch += (GLfloat)(mouseSens * deltaTime * yoffset);
+		//pitch += (GLfloat)(mouseSens * deltaTime * yoffset);
 
 		if (pitch > 89.0f) pitch = 89.0f;
 		if (pitch < -89.0f)	pitch = -89.0f;
