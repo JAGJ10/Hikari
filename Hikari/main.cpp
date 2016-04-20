@@ -6,6 +6,7 @@
 #include <GLFW/glfw3.h>
 #include <cuda_gl_interop.h>
 #include <iostream>
+#include <chrono>
 #include "bvh.h"
 #include "helper_math.h"
 #include "Camera.hpp"
@@ -94,7 +95,7 @@ int main() {
 	float3 offset = make_float3(0);
 	float3 scale = make_float3(-15, 15, -15);
 	Mesh cBox("objs/Avent", 0, scale, offset);
-	offset = make_float3(0, 45, 0);
+	offset = make_float3(0, 55, 0);
 	scale = make_float3(100);
 	Mesh light("objs/plane", (int)cBox.triangles.size(), scale, offset);
 	cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
@@ -146,7 +147,12 @@ int main() {
 				
 		if (frameNumber < 20000) {
 			cudaCheck(cudaGraphicsMapResources(1, &resource, 0));
+			std::chrono::time_point<std::chrono::system_clock> start, end;
+			start = std::chrono::system_clock::now();
 			render(dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, frameNumber, cam.moved);
+			end = std::chrono::system_clock::now();
+			std::chrono::duration<double> elapsed_seconds = end - start;
+			std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
 			cudaCheck(cudaGraphicsUnmapResources(1, &resource, 0));
 		}
 

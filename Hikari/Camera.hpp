@@ -40,7 +40,6 @@ public:
 
 		fov.x = fieldOfView;
 		fov.y = (180 / M_PI) * (atanf(tanf(fieldOfView * 0.5f * (M_PI / 180) * ((float)resolution.y / (float)resolution.x)) * 2.0f));
-		std::cout << fov.y << std::endl;
 		
 		hAxis = u * tanf(fov.x * 0.5f * (M_PI / 180));
 		vAxis = v * tanf(-fov.y * 0.5f * (M_PI / 180));
