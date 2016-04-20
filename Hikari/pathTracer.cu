@@ -73,11 +73,11 @@ __device__ bool shadowRay(float3 hitPoint, float3 lightPos, float3 rayDir) {
 	return false;
 }
 
-__global__ void secondaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface, float4* accumBuffer, float3* mask, unsigned int frameNumber, unsigned int hashed, int i) {
+__global__ void secondaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface, float4* accumBuffer, float3* mask, unsigned int frameNumber, unsigned int hashed, int i, int numActiveRays) {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * cam->res.x);
-	if (index >= (cam->res.x * cam->res.y) || !rays[index].active) return;
+	if (index >= numActiveRays || !rays[index].active) return;
 
 	curandState randState;
 	curand_init(hashed + index, 0, 0, &randState);
@@ -198,7 +198,6 @@ void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* 
 	dim3 block(32, 16);
 	dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
 	int numActiveRays = width * height;
-	int launchLimit = (width * height) / 16;
 	
 	unsigned int hashed = WangHash(frameNumber);
 	cudaCheck(cudaMemcpyToSymbol(triangles, &dTriangles, sizeof(float4*)));
@@ -217,11 +216,12 @@ void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* 
 	primaryRays<<<grid, block>>>(rays, cam, surface, buffer, frameNumber, hashed);
 	if (!quickRender) {
 		for (int i = 0; i < 3; i++) {
-			thrust::device_ptr<Ray> tRays = thrust::device_pointer_cast(rays);
-			thrust::device_ptr<Ray> tRaysLast = thrust::remove_if(tRays, tRays + numActiveRays, isRayActive());
-			numActiveRays = thrust::distance(tRays, tRaysLast);
-			dim3 compactGrid((sqrt(numActiveRays) + block.x - 1) / block.x, (sqrt(numActiveRays) + block.y - 1) / block.y);
-			secondaryRays<<<compactGrid, block>>>(rays, cam, surface, accumBuffer, mask, frameNumber, hashed, i);
+			thrust::device_ptr<Ray> tRays(rays);
+			thrust::device_ptr<Ray> tRaysLast(thrust::remove_if(tRays, tRays + numActiveRays, isRayActive()));
+			numActiveRays = tRaysLast.get() - rays;
+			int sqrtNumActiveRays = sqrt(numActiveRays);
+			dim3 compactGrid((sqrtNumActiveRays + block.x - 1) / block.x, (sqrtNumActiveRays + block.y - 1) / block.y);
+			secondaryRays<<<compactGrid, block>>>(rays, cam, surface, accumBuffer, mask, frameNumber, hashed, i, numActiveRays);
 		}
 	}
 	writePixels<<<grid, block>>>(cam, surface, buffer, accumBuffer, frameNumber);

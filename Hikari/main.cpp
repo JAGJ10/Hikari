@@ -143,7 +143,6 @@ int main() {
 		cudaCheck(cudaMemcpy(dCam, &cam, sizeof(Camera), cudaMemcpyHostToDevice));
 
 		frameNumber++;
-		std::cout << "Frame: " << frameNumber << std::endl;
 				
 		if (frameNumber < 20000) {
 			cudaCheck(cudaGraphicsMapResources(1, &resource, 0));
@@ -151,8 +150,8 @@ int main() {
 			start = std::chrono::system_clock::now();
 			render(dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, frameNumber, cam.moved);
 			end = std::chrono::system_clock::now();
-			std::chrono::duration<double> elapsed_seconds = end - start;
-			std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
+			std::chrono::duration<double> elapsed = end - start;
+			std::cout << "Frame: " << frameNumber << " --- Elapsed time: " << elapsed.count() << "s\n";
 			cudaCheck(cudaGraphicsUnmapResources(1, &resource, 0));
 		}
 
