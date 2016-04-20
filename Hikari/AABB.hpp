@@ -2,7 +2,7 @@
 #define AABB_H
 
 #include <cuda_runtime.h>
-#include "ray.h"
+#include "Ray.h"
 #include <vector>
 
 class AABB {

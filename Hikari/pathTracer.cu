@@ -9,24 +9,14 @@
 #include "sphere.h"
 #include "Ray.h"
 #include "Camera.hpp"
-#include "bvh.h"
+#include "BVH.h"
 
-#define M_PI                  3.1415926535897932384626422832795028841971f
-#define TWO_PI				  6.2831853071795864769252867665590057683943f
-#define SQRT_OF_ONE_THIRD     0.5773502691896257645091487805019574556476f
-#define E                     2.7182818284590452353602874713526624977572f
+#define M_PI  3.1415926535897932384626422832795028841971f
 #define width 1280
 #define height 720
 
 __device__ Triangle* triangles;
 __device__ LBVHNode* nodes;
-
-__constant__ Sphere spheres[] = {
-	// { float radius, { float3 position }, { float3 emission }, { float3 colour }, refl_type }
-	{ 1e5f, { 0.f, 0.f, -1e5f - 15.0f }, { 0.0f, 0.0f, 0.0f }, { .75f, .75f, .75f }, SPEC }, //Back 
-	{ 1e5f, { 0.f, -1e5f - 2.f, 0.0f }, { 0.0f, 0.0f, 0.0f }, { .75f, .75f, .75f }, DIFF }, //Bottom 
-	{ 400.0f, { 0.0f, 465.0f, 0.f }, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, DIFF }  // Light
-};
 
 __device__ bool intersect(const Ray& r, int& triId, float& hitDist, float3& hitPoint) {
 	int stack[64];
@@ -81,8 +71,6 @@ __global__ void secondaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surfac
 
 	curandState randState;
 	curand_init(hashed + index, 0, 0, &randState);
-	//mask[index] = make_float3(1.0f);
-	float3 accucolor = make_float3(0.0f);
 
 	float hitDist = 1e20;
 	int tri = -1;
@@ -93,7 +81,7 @@ __global__ void secondaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surfac
 		n = dot(triangles[tri].normal, rays[index].dir) < 0 ? triangles[tri].normal : triangles[tri].normal * -1;
 		c = triangles[tri].diffuse;
 		emit = triangles[tri].emit;
-		accucolor += i > 0 ? mask[index] * emit : make_float3(0.0f);
+		accumBuffer[index] += i > 0 ? make_float4(mask[index] * emit, 1.0f) : make_float4(0.0f);
 		mask[index] *= c;
 
 		//ideal diffuse reflection
@@ -113,8 +101,6 @@ __global__ void secondaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surfac
 	} else {
 		rays[index].active = false;
 	}
-
-	accumBuffer[index] += make_float4(accucolor, 1.0f);
 }
 
 __global__ void primaryRays(Ray* rays, Camera* cam, cudaSurfaceObject_t surface, float4* buffer, unsigned int frameNumber, unsigned int hashed) {
@@ -180,11 +166,11 @@ __global__ void writePixels(Camera* cam, cudaSurfaceObject_t surface, float4* bu
 
 struct isRayActive {
 	__host__ __device__  bool operator()(const Ray& r) {
-		return r.active == -1;
+		return !r.active;
 	}
 };
 
-// this hash function calculates a new random number generator seed for each frame, based on framenumber  
+//calculates a new random number generator seed for each frame, based on framenumber  
 unsigned int WangHash(unsigned int a) {
 	a = (a ^ 61) ^ (a >> 16);
 	a = a + (a << 3);

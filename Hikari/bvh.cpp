@@ -1,4 +1,4 @@
-#include "bvh.h"
+#include "BVH.h"
 
 BVH::BVH(const std::vector<triBox>& aabbs, const std::vector<Triangle>& triangles, AABB sceneBounds) {
 	int totalNodes = 0;

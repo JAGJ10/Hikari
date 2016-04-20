@@ -7,7 +7,8 @@
 #include <cuda_gl_interop.h>
 #include <iostream>
 #include <chrono>
-#include "bvh.h"
+
+#include "BVH.h"
 #include "helper_math.h"
 #include "Camera.hpp"
 #include "FullscreenQuad.h"
@@ -27,20 +28,6 @@ static const GLfloat lastY = (height / 2);
 static float deltaTime = 0.0f;
 static float lastFrame = 0.0f;
 unsigned int frameNumber = 0;
-
-void createFile(BVHNode* node, std::ofstream& myfile) {
-	if (!node->IsLeaf()) {
-		myfile << node->min.x << " " << node->min.y << " " << node->min.z << " " << node->max.x << " " << node->max.y << " " << node->max.z << std::endl;
-		createFile(dynamic_cast<BVHInner*>(node)->a, myfile);
-		createFile(dynamic_cast<BVHInner*>(node)->b, myfile);
-	}
-
-	/*for (auto const& n : nodes) {
-		if (n.triCount == 0) {
-			myfile << n.bb.minBounds.x << " " << n.bb.minBounds.y << " " << n.bb.minBounds.z << " " << n.bb.maxBounds.x << " " << n.bb.maxBounds.y << " " << n.bb.maxBounds.z << std::endl;
-		}
-	}*/
-}
 
 int main() {
 	//Checks for memory leaks in debug mode
@@ -69,7 +56,7 @@ int main() {
 	cudaCheck(cudaGLSetGLDevice(0));
 	cudaGraphicsResource *resource;
 
-	// create the texture that we use to visualize the ray-tracing result
+	//Create a texture to store ray tracing result
 	GLuint tex;
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &tex);
@@ -103,11 +90,6 @@ int main() {
 	std::cout << "Num triangles: " << cBox.triangles.size() << std::endl;
 	cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
 	BVH bvh(cBox.aabbs, cBox.triangles, cBox.root);
-
-	//std::ofstream myfile;
-	//myfile.open("Avent.txt");
-	//createFile(root, myfile);
-	//myfile.close();
 
 	Camera cam(make_float3(14, 15, 80), make_int2(width, height), 45.0f, 0.04f, 100.0f);
 	Camera* dCam;

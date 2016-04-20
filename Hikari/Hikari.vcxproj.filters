@@ -11,73 +11,74 @@
     <Filter Include="src\shaders">
       <UniqueIdentifier>{bbb24074-24ab-41e2-a9e3-e8d6bdb69128}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\utils">
+      <UniqueIdentifier>{923a796b-b462-43be-8689-fb13580886c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\opengl">
+      <UniqueIdentifier>{a382e545-7ce0-4473-91cd-acfc77245ef7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="bvh.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="pathTracer.cpp">
+    <ClCompile Include="PathTracer.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
     <ClCompile Include="FullscreenQuad.cpp">
-      <Filter>src</Filter>
+      <Filter>src\opengl</Filter>
     </ClCompile>
     <ClCompile Include="VBO.cpp">
-      <Filter>src</Filter>
+      <Filter>src\opengl</Filter>
     </ClCompile>
     <ClCompile Include="Shader.cpp">
-      <Filter>src</Filter>
+      <Filter>src\opengl</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH.cpp">
+      <Filter>src\core</Filter>
     </ClCompile>
     <ClCompile Include="Mesh.cpp">
-      <Filter>src</Filter>
+      <Filter>src\core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="pathTracer.cu">
-      <Filter>src\core</Filter>
-    </CudaCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="bvh.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="sphere.h">
       <Filter>src\core</Filter>
-    </ClInclude>
-    <ClInclude Include="pathTracer.h">
-      <Filter>src\core</Filter>
-    </ClInclude>
-    <ClInclude Include="FullscreenQuad.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="helper_math.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="Shader.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="tiny_obj_loader.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="VBO.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="Mesh.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="Triangle.hpp">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="AABB.hpp">
-      <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="Camera.hpp">
       <Filter>src\core</Filter>
     </ClInclude>
     <ClInclude Include="Ray.h">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="PathTracer.h">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="tiny_obj_loader.h">
+      <Filter>src\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="helper_math.h">
+      <Filter>src\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="FullscreenQuad.h">
+      <Filter>src\opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="VBO.h">
+      <Filter>src\opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader.h">
+      <Filter>src\opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="AABB.hpp">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="BVH.h">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.h">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="Triangle.hpp">
       <Filter>src\core</Filter>
     </ClInclude>
   </ItemGroup>
@@ -88,5 +89,10 @@
     <None Include="fsQuad.vert">
       <Filter>src\shaders</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="pathTracer.cu">
+      <Filter>src\core</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

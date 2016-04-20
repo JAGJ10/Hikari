@@ -159,21 +159,21 @@
   <ItemGroup>
     <ClCompile Include="FullscreenQuad.cpp" />
     <ClCompile Include="Mesh.cpp" />
-    <ClCompile Include="pathTracer.cpp" />
+    <ClCompile Include="PathTracer.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="VBO.cpp" />
-    <ClCompile Include="bvh.cpp" />
+    <ClCompile Include="BVH.cpp" />
     <ClCompile Include="main.cpp" />
     <CudaCompile Include="pathTracer.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AABB.hpp" />
-    <ClInclude Include="bvh.h" />
+    <ClInclude Include="BVH.h" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="FullscreenQuad.h" />
     <ClInclude Include="helper_math.h" />
     <ClInclude Include="Mesh.h" />
-    <ClInclude Include="pathTracer.h" />
+    <ClInclude Include="PathTracer.h" />
     <ClInclude Include="Ray.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="sphere.h" />
