@@ -157,6 +157,7 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AreaLight.cpp" />
     <ClCompile Include="FullscreenQuad.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="PathTracer.cpp" />
@@ -168,6 +169,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AABB.hpp" />
+    <ClInclude Include="AreaLight.h" />
     <ClInclude Include="BVH.h" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="FullscreenQuad.h" />

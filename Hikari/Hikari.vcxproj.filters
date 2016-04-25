@@ -40,6 +40,9 @@
     <ClCompile Include="Mesh.cpp">
       <Filter>src\core</Filter>
     </ClCompile>
+    <ClCompile Include="AreaLight.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sphere.h">
@@ -79,6 +82,9 @@
       <Filter>src\core</Filter>
     </ClInclude>
     <ClInclude Include="Triangle.hpp">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="AreaLight.h">
       <Filter>src\core</Filter>
     </ClInclude>
   </ItemGroup>

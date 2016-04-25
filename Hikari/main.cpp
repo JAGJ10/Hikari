@@ -19,7 +19,7 @@
 #include <crtdbg.h>
 
 void handleInput(GLFWwindow* window, Camera &cam);
-void render(Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, unsigned int frameNumber, bool quickRender);
+void render(const Camera& hostCam, Camera* cam, cudaSurfaceObject_t surface, float4* buffer, Triangle* dTriangles, LBVHNode* dNodes, unsigned int frameNumber, bool quickRender);
 
 static const int width = 1280;
 static const int height = 720;
@@ -80,18 +80,18 @@ int main() {
 
 	//Mesh
 	float3 offset = make_float3(0);
-	float3 scale = make_float3(-15, 15, -15);
-	Mesh cBox("objs/Avent", 0, scale, offset);
-	offset = make_float3(0, 55, 0);
-	scale = make_float3(100);
-	Mesh light("objs/plane", (int)cBox.triangles.size(), scale, offset);
-	cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
-	cBox.aabbs.insert(cBox.aabbs.end(), light.aabbs.begin(), light.aabbs.end());
+	float3 scale = make_float3(0.05f, 0.05f, -0.05f);
+	Mesh cBox("objs/cornell_box_multimaterial", 0, scale, offset);
+	//offset = make_float3(0, 55, 0);
+	//scale = make_float3(100);
+	//Mesh light("objs/plane", (int)cBox.triangles.size(), scale, offset);
+	//cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
+	//cBox.aabbs.insert(cBox.aabbs.end(), light.aabbs.begin(), light.aabbs.end());
 	std::cout << "Num triangles: " << cBox.triangles.size() << std::endl;
-	cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
+	//cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
 	BVH bvh(cBox.aabbs, cBox.triangles, cBox.root);
 
-	Camera cam(make_float3(14, 15, 80), make_int2(width, height), 45.0f, 0.04f, 100.0f);
+	Camera cam(make_float3(14, 15, 80), make_int2(width, height), 45.0f, 0.04f, 80.0f);
 	Camera* dCam;
 
 	cudaCheck(cudaMalloc((void**)&dCam, sizeof(Camera)));
@@ -130,7 +130,7 @@ int main() {
 			cudaCheck(cudaGraphicsMapResources(1, &resource, 0));
 			std::chrono::time_point<std::chrono::system_clock> start, end;
 			start = std::chrono::system_clock::now();
-			render(dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, frameNumber, cam.moved);
+			render(cam, dCam, viewCudaSurfaceObject, buffer, bvh.dTriangles, bvh.dNodes, frameNumber, cam.moved);
 			end = std::chrono::system_clock::now();
 			std::chrono::duration<double> elapsed = end - start;
 			std::cout << "Frame: " << frameNumber << " --- Elapsed time: " << elapsed.count() << "s\n";
@@ -152,7 +152,6 @@ int main() {
 
 		//Swap the buffers
 		glfwSwapBuffers(window);
-
 		glfwSetCursorPos(window, lastX, lastY);
 	}
 
