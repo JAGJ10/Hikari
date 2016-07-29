@@ -26,8 +26,8 @@ __device__ bool intersect(const Ray& r, HitInfo& hit) {
 		const LBVHNode* n = &nodes[stack[--topIndex]];
 		if (n->bb.intersect(r)) {
 			if (n->triCount > 0) {
-				uint32_t index = n->triOffset;
-				for (uint32_t i = 0; i < n->triCount; i++) {
+				unsigned int index = n->triOffset;
+				for (unsigned int i = 0; i < n->triCount; i++) {
 					Triangle tri = triangles[index + i];
 					float t = tri.intersect(r, make_float3(tri.v0), make_float3(tri.v1 - tri.v0), make_float3(tri.v2 - tri.v0));
 					if (t < hit.hitDist && t > 0.001f) {
@@ -131,13 +131,13 @@ __global__ void primaryRays(Ray* rays, int* activeRays, Camera* cam, float4* buf
 			activeRays[index] = -1;
 		} else {
 			//generate random point on light surface
-			float lightArea = 225.0f;  //1000; 
-			float lightWidth = 15.f / 2.f; //50;
-			float lightHeight = 15.f / 2.f; //50; 
-			float3 lightPos = make_float3(15.f, 27.4f, -15.f) + make_float3(lightWidth * (r1 * 2 - 1), 0, lightHeight * (r2 * 2 - 1));
-			//float3 lightPos = make_float3(0, 55, 0) + make_float3(lightWidth * (r1 * 2 - 1), 0, lightHeight * (r2 * 2 - 1));
+			float lightArea = 1000; // 225.0f;  //1000; 
+			float lightWidth = 50; // 15.f / 2.f; //50;
+			float lightHeight = 50; // 15.f / 2.f; //50; 
+			//float3 lightPos = make_float3(15.f, 27.4f, -15.f) + make_float3(lightWidth * (r1 * 2 - 1), 0, lightHeight * (r2 * 2 - 1));
+			float3 lightPos = make_float3(0, 55, 0) + make_float3(lightWidth * (r1 * 2 - 1), 0, lightHeight * (r2 * 2 - 1));
 			float3 lightNormal = make_float3(0, -1, 0);
-			float3 lightColor = make_float3(2.0f);
+			float3 lightColor = make_float3(20.0f);
 			//check if we can see the light
 			float3 distance = lightPos - hit.hitPoint;
 			float3 l = normalize(distance);
@@ -170,13 +170,13 @@ struct isRayActive {
 	}
 };
 
-//calculates a new random number generator seed for each frame, based on framenumber  
-unsigned int WangHash(unsigned int a) {
-	a = (a ^ 61) ^ (a >> 16);
-	a = a + (a << 3);
-	a = a ^ (a >> 4);
-	a = a * 0x27d4eb2d;
-	a = a ^ (a >> 15);
+unsigned int hash(unsigned int a) {
+	a = (a + 0x7ed55d16) + (a << 12);
+	a = (a ^ 0xc761c23c) ^ (a >> 19);
+	a = (a + 0x165667b1) + (a << 5);
+	a = (a + 0xd3a2646c) ^ (a << 9);
+	a = (a + 0xfd7046c5) + (a << 3);
+	a = (a ^ 0xb55a4f09) ^ (a >> 16);
 	return a;
 }
 
@@ -185,7 +185,7 @@ void render(const Camera& hostCam, Camera* cam, cudaSurfaceObject_t surface, flo
 	dim3 grid((hostCam.res.x + block.x - 1) / block.x, (hostCam.res.y + block.y - 1) / block.y);
 	int numActiveRays = hostCam.res.x * hostCam.res.y;
 	
-	unsigned int frameHash = WangHash(frameNumber);
+	unsigned int frameHash = hash(frameNumber);
 	cudaCheck(cudaMemcpyToSymbol(triangles, &dTriangles, sizeof(float4*)));
 	cudaCheck(cudaMemcpyToSymbol(nodes, &dNodes, sizeof(LBVHNode*)));
 
@@ -204,7 +204,7 @@ void render(const Camera& hostCam, Camera* cam, cudaSurfaceObject_t surface, flo
 	primaryRays<<<grid, block>>>(rays, activeRays, cam, buffer, frameHash);
 	if (!quickRender) {
 		for (int i = 0; i < 4; i++) {
-			unsigned int bounceHash = WangHash(i);
+			unsigned int bounceHash = hash(i);
 			/*thrust::device_ptr<int> tRays(activeRays);
 			thrust::device_ptr<int> tRaysLast(thrust::remove_if(tRays, tRays + numActiveRays, isRayActive()));
 			numActiveRays = tRaysLast.get() - activeRays;

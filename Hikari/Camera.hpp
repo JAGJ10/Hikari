@@ -37,7 +37,7 @@ public:
 		yaw = -90.0f;
 		pitch = 0.0f;
 		speed = 10.0f;
-		mouseSens = 0.1f;
+		mouseSens = 0.05f;
 
 		fov.x = fieldOfView;
 		fov.y = (180 / M_PI) * (atanf(tanf(fieldOfView * 0.5f * (M_PI / 180) * ((float)resolution.y / (float)resolution.x)) * 2.0f));

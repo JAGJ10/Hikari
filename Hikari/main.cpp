@@ -80,15 +80,15 @@ int main() {
 
 	//Mesh
 	float3 offset = make_float3(0);
-	float3 scale = make_float3(0.05f, 0.05f, -0.05f);
-	Mesh cBox("objs/cornell_box_multimaterial", 0, scale, offset);
-	//offset = make_float3(0, 55, 0);
-	//scale = make_float3(100);
-	//Mesh light("objs/plane", (int)cBox.triangles.size(), scale, offset);
-	//cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
-	//cBox.aabbs.insert(cBox.aabbs.end(), light.aabbs.begin(), light.aabbs.end());
+	float3 scale = make_float3(15);
+	Mesh cBox("objs/Avent", 0, scale, offset);
+	offset = make_float3(0, 55, 0);
+	scale = make_float3(100);
+	Mesh light("objs/plane", (int)cBox.triangles.size(), scale, offset);
+	cBox.triangles.insert(cBox.triangles.end(), light.triangles.begin(), light.triangles.end());
+	cBox.aabbs.insert(cBox.aabbs.end(), light.aabbs.begin(), light.aabbs.end());
 	std::cout << "Num triangles: " << cBox.triangles.size() << std::endl;
-	//cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
+	cBox.root = AABB(fminf(cBox.root.minBounds, light.root.minBounds), fmaxf(cBox.root.maxBounds, light.root.maxBounds));
 	BVH bvh(cBox.aabbs, cBox.triangles, cBox.root);
 
 	Camera cam(make_float3(14, 15, 80), make_int2(width, height), 45.0f, 0.04f, 80.0f);
